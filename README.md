@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/429406115.svg)](https://zenodo.org/badge/latestdoi/429406115)
+
 # Neuropixels trajectory explorer
 Neuropixels trajectory explorer with the Allen CCF mouse atlas or Waxholm rat atlas. See changelog below for history of updates.
 
@@ -89,7 +91,9 @@ During the experiment:
 - Zero the depth coordinate (along the probe-axis), then descend until the desired depth is reached
 
 ## Changelog
-2022-05-20: Added rat trajectroy explorer ('neuropixels_trajectory_explorer_rat')
+2022-07-20: Updated position readout for clarification
+
+2022-05-20: Added rat trajectory explorer ('neuropixels_trajectory_explorer_rat')
 
 2022-05-18: Changed coordinate system to allow for more flexible coordinate changes in future (including user-set scalings/rotations)
 
