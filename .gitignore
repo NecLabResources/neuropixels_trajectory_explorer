@@ -57,3 +57,16 @@ npy-matlab-master/tests/data/test.npy
 npy-matlab-master/tests/npy.ipynb
 npy-matlab-master/tests/test_npy_roundtrip.py
 npy-matlab-master/tests/test_readNPY.m
+*.npy
+npy-matlab-master/npy-matlab-master/.travis.yml
+npy-matlab-master/npy-matlab-master/examples/exampleMemmap.m
+npy-matlab-master/npy-matlab-master/LICENSE
+npy-matlab-master/npy-matlab-master/npy-matlab/constructNPYheader.m
+npy-matlab-master/npy-matlab-master/npy-matlab/datToNPY.m
+npy-matlab-master/npy-matlab-master/npy-matlab/readNPY.m
+npy-matlab-master/npy-matlab-master/npy-matlab/readNPYheader.m
+npy-matlab-master/npy-matlab-master/npy-matlab/writeNPY.m
+npy-matlab-master/npy-matlab-master/README.md
+npy-matlab-master/npy-matlab-master/tests/npy.ipynb
+npy-matlab-master/npy-matlab-master/tests/test_npy_roundtrip.py
+npy-matlab-master/npy-matlab-master/tests/test_readNPY.m
