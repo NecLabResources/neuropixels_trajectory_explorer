@@ -27,10 +27,6 @@ end
 if ~license('test','Image_Toolbox')
     error('MATLAB image processing toolbox required (https://uk.mathworks.com/products/image.html)')
 end
-% (image processing toolbox)
-if ~license('test','Image_Toolbox')
-    error('MATLAB Image Processing toolbox required: https://uk.mathworks.com/products/image.html')
-end
 
 % Initialize gui_data structure
 gui_data = struct;
@@ -140,7 +136,7 @@ grid on;
 gui_position_px = getpixelposition(probe_atlas_gui);
 probe_coordinates_text = annotation('textbox','String','', ...
     'Units','normalized','Position',[0,0,1,1],'VerticalAlignment','top', ...
-    'FontSize',12,'FontName','Consolas');
+    'FontSize',12,'FontName','Consolas','PickableParts','none');
 
 % Set up the probe area axes
 axes_probe_areas = axes('Position',[0.90,0.01,0.03,0.95],'TickDir','in');
@@ -228,7 +224,7 @@ gui_data.probe_coordinates_text = probe_coordinates_text; % Probe coordinates te
 % Make 3D rotation the default state
 h = rotate3d(axes_atlas);
 h.Enable = 'on';
-h.ButtonDownFilter = @rotate_clickable;
+h.ButtonDownFilter = @rotate_clickable; % enable click-to-select during rotation
 % Update the slice whenever a rotation is completed
 h.ActionPostCallback = @update_slice;
 
@@ -1403,43 +1399,13 @@ set(gui_data.probe_coordinates_text,'Color','r')
 
 % Initialize MPM client
 if ~isdeployed
-    % (being run in matlab: if MPM client not in path, find it and add to the path)
-    newscale_client_file = 'NstMpmClientAccess.dll';
-    if ~exist(newscale_client_file,'file')
-        [~,newscale_client_path] = uigetfile(newscale_client_file,sprintf('Choose MPM client file (%s)',newscale_client_file));
-        newscale_client_filename = fullfile(newscale_client_path,newscale_client_file);
-
-        if ~exist(newscale_client_filename,'file')
-            % error out if file doesn't exist
-            error('Please supply MPM client file (%s) - ',newscale_client_file)
-        else
-            % if file exists, add folder to path and save
-            addpath(newscale_client_path)
-            savepath
-        end
-    end
-
-    newscale_client_filename = which(newscale_client_file);
-
+    % (being run in matlab: dll is kept in helpers folder)
+    newscale_client_filename = fullfile( ...
+        fileparts(which('neuropixels_trajectory_explorer')), ...
+        'nte_helpers','NstMpmClientAccess.dll');
 elseif isdeployed
-    % (standalone: load from saved file path, or query if not found)
-    load('nte_paths.mat');
-    newscale_client_filename = nte_paths.newscale_client_filename;
-    if ~exist(newscale_client_filename,'file')
-        % (use uigetdir_workaround: matlab-issued workaround for R2018a bug)
-        newscale_client_path = uigetdir_workaround([],'Select folder with MPM client');
-        newscale_client_filename = fullfile(newscale_client_path,'NstMpmClientAccess.dll');
-        if ~exist(newscale_client_filename,'file')
-            % If MPM client not present in specified directory, error out
-            errordlg(sprintf('MPM client not found: %s',newscale_client_filename));
-            return
-        else
-            % If MPM client present, save path for future
-            nte_paths.newscale_client_filename = newscale_client_filename;
-            nte_paths_fn = which('nte_paths.mat');
-            save(nte_paths_fn,'nte_paths');
-        end
-    end
+    % (standalone: included in exe, load)
+    newscale_client_filename = which('NstMpmClientAccess.dll');
 end
 
 NET.addAssembly(newscale_client_filename);
@@ -1856,14 +1822,11 @@ end
 function flag = rotate_clickable(obj,event_obj)
 % If the object tag is 'rotate_clickable', then enable clicking even during
 % rotate3d
-objTag = obj.Tag;
-
 if strcmpi(obj.Tag,'rotate_clickable')
     flag = true;
 else
     flag = false;
 end
-
 end
 
 %% Load and format structure tree
