@@ -1716,6 +1716,7 @@ for curr_newscale_probe = 1:gui_data.newscale_client.AppData.Probes
     curr_probe_position = cell2mat(get(gui_data.handles.probe_line(curr_newscale_probe), ...
         {'XData','YData','ZData'})');
     if all(probe_tip == curr_probe_position(:,2))
+        disp('no changes')
         continue
     end
 
@@ -1790,16 +1791,17 @@ for curr_newscale_probe = 1:gui_data.newscale_client.AppData.Probes
     end
 
     % Select MPM-selected probe (0-indexed, unselected = -1 so force >1)
-    newscale_selected_probe = max(gui_data.newscale_client.AppData.SelectedProbe+1,1);
-    select_probe(gui_data.handles.probe_line(newscale_selected_probe),[],probe_atlas_gui)
-
-    % Update the slice and probe coordinates
-    update_probe_coordinates(probe_atlas_gui);
-
-    % Update slice
-    update_slice(probe_atlas_gui);
+newscale_selected_probe = max(gui_data.newscale_client.AppData.SelectedProbe+1,1);
+select_probe(gui_data.handles.probe_line(newscale_selected_probe),[],probe_atlas_gui)
 
 end
+
+
+% Update the slice and probe coordinates
+update_probe_coordinates(probe_atlas_gui);
+
+% Update slice
+update_slice(probe_atlas_gui);
 
 end
 
