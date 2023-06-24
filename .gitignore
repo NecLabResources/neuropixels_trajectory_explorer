@@ -1,4 +1,3 @@
-
 structure_tree_safe_2017.csv
 annotation_volume_10um_by_index.npy
 structure_tree_safe.csv
@@ -70,3 +69,5 @@ npy-matlab-master/npy-matlab-master/README.md
 npy-matlab-master/npy-matlab-master/tests/npy.ipynb
 npy-matlab-master/npy-matlab-master/tests/test_npy_roundtrip.py
 npy-matlab-master/npy-matlab-master/tests/test_readNPY.m
+neuropixels_trajectory_explorer.asv
+

@@ -116,7 +116,7 @@ ccf_bregma_tform = affine3d(ccf_bregma_tform_matrix);
 
 % Set up the gui
 probe_atlas_gui = figure('Toolbar','none','Menubar','none','color','w', ...
-    'Name','Neuropixels Trajectory Explorer','Units','normalized','Position',[0.2,0.2,0.7,0.7], ...
+    'Name','Neuropixels Trajectory Explorer','Units','centimeters','Position',[0.3,8,24,15], ...
     'CloseRequestFcn',{@gui_close});
 
 % Set up the atlas axes
@@ -151,7 +151,12 @@ set(axes_probe_areas,'XTick','','YColor','k','YDir','reverse');
 title(axes_probe_areas,'Probe areas');
 colormap(axes_probe_areas,ccf_cmap);
 clim([1,size(ccf_cmap,1)]);
-axes_probe_areas_probelimits = yline(axes_probe_areas,[0,0],'linewidth',5,'color','b');
+axes_probe_areas_probelimits = ...
+    rectangle(axes_probe_areas, ...
+    'position',[min(xlim(axes_probe_areas)),0,diff(xlim(axes_probe_areas)),1], ...
+    'edgecolor','b','linewidth',5);
+
+
 
 %% Create menu/buttons
 
@@ -192,7 +197,7 @@ manipulator_menu = uimenu(probe_atlas_gui,'Text','Manipulator');
 uimenu(manipulator_menu,'Text','New Scale MPM','MenuSelectedFcn',{@manipulator_newscale,probe_atlas_gui});
 uimenu(manipulator_menu,'Text','Scientifica Patchstar','MenuSelectedFcn',{@manipulator_scientifica,probe_atlas_gui});
 
-saveload_menu = uimenu(probe_atlas_gui,'Text','Save/load');
+saveload_menu = uimenu(probe_atlas_gui,'Text','Save/Load');
 uimenu(saveload_menu,'Text','Save positions','MenuSelectedFcn',{@save_probe_positions,probe_atlas_gui});
 uimenu(saveload_menu,'Text','Load positions','MenuSelectedFcn',{@load_probe_positions,probe_atlas_gui});
 
@@ -542,14 +547,18 @@ probe_ref_top = [probe_ref_top_ml,probe_ref_top_ap,0];
 probe_ref_bottom = probe_ref_top + [x,y,z];
 probe_ref_vector = [probe_ref_top;probe_ref_bottom]';
 
-set(gui_data.handles.probe_ref_line,'XData',probe_ref_vector(1,:), ...
+set(gui_data.handles.probe_ref_line(gui_data.selected_probe), ...
+    'XData',probe_ref_vector(1,:), ...
     'YData',probe_ref_vector(2,:), ...
     'ZData',probe_ref_vector(3,:));
 
 probe_vector = [probe_ref_vector(:,1),diff(probe_ref_vector,[],2)./ ...
-    norm(diff(probe_ref_vector,[],2))*gui_data.probe_length + probe_ref_vector(:,1)];
-set(gui_data.handles.probe_line,'XData',probe_vector(1,:), ...
-    'YData',probe_vector(2,:),'ZData',probe_vector(3,:));
+    norm(diff(probe_ref_vector,[],2))*gui_data.probe_length(gui_data.selected_probe) + ...
+    probe_ref_vector(:,1)];
+set(gui_data.handles.probe_line(gui_data.selected_probe), ...
+    'XData',probe_vector(1,:), ...
+    'YData',probe_vector(2,:), ...
+    'ZData',probe_vector(3,:));
 
 % Upload gui_data
 gui_data.probe_angle{gui_data.selected_probe} = probe_angle;
@@ -598,16 +607,19 @@ probe_ref_top = [probe_ref_top_ml,probe_ref_top_ap,0];
 probe_ref_bottom = probe_ref_top + [x,y,z];
 probe_ref_vector = [probe_ref_top;probe_ref_bottom]';
 
-set(gui_data.handles.probe_ref_line,'XData',probe_ref_vector(1,:), ...
+set(gui_data.handles.probe_ref_line(gui_data.selected_probe), ...
+    'XData',probe_ref_vector(1,:), ...
     'YData',probe_ref_vector(2,:), ...
     'ZData',probe_ref_vector(3,:));
 
 % Move probe (lock endpoint, back up length of probe)
-probe_vector = [diff(probe_ref_vector,[],2)./norm(diff(probe_ref_vector,[],2))* ...
-    -gui_data.probe_length + new_probe_position([2,1,3]), ...
-    new_probe_position([2,1,3])];
-set(gui_data.handles.probe_line,'XData',probe_vector(1,:), ...
-    'YData',probe_vector(2,:),'ZData',probe_vector(3,:));
+probe_vector = [diff(probe_ref_vector,[],2)./ ...
+    norm(diff(probe_ref_vector,[],2))*-gui_data.probe_length(gui_data.selected_probe) + ...
+    new_probe_position([2,1,3]),new_probe_position([2,1,3])];
+set(gui_data.handles.probe_line(gui_data.selected_probe), ...
+    'XData',probe_vector(1,:), ...
+    'YData',probe_vector(2,:), ...
+    'ZData',probe_vector(3,:));
 
 % Upload gui_data
 gui_data.probe_angle{gui_data.selected_probe} = (probe_angle_rad/(2*pi))*360;
@@ -738,6 +750,11 @@ trajectory_brain_intersect = ...
     trajectory_ap_coords_bregma(trajectory_brain_idx), ...
     trajectory_dv_coords_bregma(trajectory_brain_idx)]';
 
+% (if the probe doesn't intersect the brain, don't update)
+if isempty(trajectory_brain_intersect)
+    return
+end
+
 trajectory_depths = pdist2(trajectory_brain_intersect',...
     [trajectory_ml_coords_bregma(trajectory_coords_ccf_inbounds); ...
     trajectory_ap_coords_bregma(trajectory_coords_ccf_inbounds); ...
@@ -747,11 +764,6 @@ trajectory_area_boundaries = intersect(unique([find(trajectory_areas ~= 1,1,'fir
     find(diff(trajectory_areas) ~= 0);find(trajectory_areas ~= 1,1,'last')]),find(trajectory_areas ~= 1));
 trajectory_area_centers_idx = round(trajectory_area_boundaries(1:end-1) + diff(trajectory_area_boundaries)/2);
 trajectory_area_centers = trajectory_depths(trajectory_area_centers_idx);
-
-% (if the probe doesn't intersect the brain, don't update)
-if isempty(trajectory_brain_intersect)
-    return
-end
 
 probe_coords_ccf = ...
     round([probe_ap_coords_ccf;probe_dv_coords_ccf;probe_ml_coords_ccf]);
@@ -825,8 +837,8 @@ switch gui_data.display_areas
             'YLim',[0,gui_data.probe_length(gui_data.selected_probe)]);
 
         % Update lines showing relative probe location
-        [gui_data.handles.axes_probe_areas_probelimits.Value] = ...
-            deal(0,gui_data.probe_length(gui_data.selected_probe));
+        gui_data.handles.axes_probe_areas_probelimits.Position([2,4]) = ...
+            [0,gui_data.probe_length(gui_data.selected_probe)];
 
         title(gui_data.handles.axes_probe_areas,'Probe areas');
 
@@ -849,8 +861,8 @@ switch gui_data.display_areas
             'YLim',prctile(trajectory_depths(plot_trajectory_idx),[0,100]))
 
         % Update lines showing relative probe location
-        [gui_data.handles.axes_probe_areas_probelimits.Value] = ...
-            deal(probe_depths(1),probe_depths(2));
+        gui_data.handles.axes_probe_areas_probelimits.Position([2,4]) = ...
+            [probe_depths(2)-diff(probe_depths),diff(probe_depths)];
 
         title(gui_data.handles.axes_probe_areas,'Trajectory areas');
 
@@ -1414,10 +1426,10 @@ switch new_check
     case 'on'
         % Create button: zero probe at brain surface
         button_fontsize = 12;
-        button_position = [0.75,0,0.15,0.05];
+        button_position = [0.70,0,0.20,0.05];
         gui_data.handles.zero_dv_button = ...
             uicontrol('Parent',probe_atlas_gui,'Style','pushbutton','FontSize',button_fontsize, ...
-            'Units','normalized','Position',button_position,'String','Probe at brain surface >', ...
+            'Units','normalized','Position',button_position,'String','Set probe at brain surface', ...
             'Callback',{@set_manipulator_dv_offset,probe_atlas_gui});
         
         % Update gui data
@@ -1486,7 +1498,9 @@ function save_probe_positions(h,eventdata,probe_atlas_gui)
 % Get guidata
 gui_data = guidata(probe_atlas_gui);
 
-% Transform bregma coordinates to CCF coordinates
+n_probes = length(gui_data.handles.probe_line);
+
+% Get CCF coordinates of the top/bottom of the probe
 [probe_ml_ccf,probe_ap_ccf,probe_dv_ccf] = ...
     transformPointsInverse(gui_data.ccf_bregma_tform, ...
     vertcat(gui_data.handles.probe_line.XData), ...
@@ -1496,12 +1510,48 @@ gui_data = guidata(probe_atlas_gui);
 % Package into CCF coordinates by probe ([AP,DV,ML])
 probe_positions_ccf = squeeze(mat2cell(permute(cat(3, ...
     probe_ap_ccf,probe_dv_ccf,probe_ml_ccf),[3,2,1]), ...
-    3,2,ones(size(gui_data.handles.probe_line))));
+    3,2,ones(n_probes,1)));
+
+% Get areas in 10um increments along probe
+probe_areas = cell(n_probes,1);
+for curr_probe = 1:n_probes
+
+    probe_vector = cell2mat(get(gui_data.handles.probe_line(gui_data.selected_probe),{'XData','YData','ZData'})');
+
+    probe_n_coords = round(sqrt(sum(diff(probe_vector,[],2).^2))*100); % 10um resolution along active sites
+    probe_coords_depth = linspace(0,gui_data.probe_length(gui_data.selected_probe),probe_n_coords);
+
+    [probe_ml_coords_bregma,probe_ap_coords_bregma,probe_dv_coords_bregma] = deal( ...
+        linspace(probe_vector(1,1),probe_vector(1,2),probe_n_coords), ...
+        linspace(probe_vector(2,1),probe_vector(2,2),probe_n_coords), ...
+        linspace(probe_vector(3,1),probe_vector(3,2),probe_n_coords));
+
+    [probe_ml_coords_ccf,probe_ap_coords_ccf,probe_dv_coords_ccf] = ...
+        transformPointsInverse(gui_data.ccf_bregma_tform, ...
+        probe_ml_coords_bregma,probe_ap_coords_bregma,probe_dv_coords_bregma);
+
+    probe_coords_ccf = ...
+        round([probe_ap_coords_ccf;probe_dv_coords_ccf;probe_ml_coords_ccf]);
+    probe_coords_ccf_inbounds = all(probe_coords_ccf > 0 & ...
+        probe_coords_ccf <= size(gui_data.av)',1);
+
+    probe_idx = ...
+        sub2ind(size(gui_data.av), ...
+        round(probe_ap_coords_ccf(probe_coords_ccf_inbounds)), ...
+        round(probe_dv_coords_ccf(probe_coords_ccf_inbounds)), ...
+        round(probe_ml_coords_ccf(probe_coords_ccf_inbounds)));
+
+    probe_areas_idx = ones(probe_n_coords,1); % (out of CCF = 1: non-brain)
+    probe_areas_idx(probe_coords_ccf_inbounds) = gui_data.av(probe_idx);
+
+    probe_areas{curr_probe} = gui_data.st(probe_areas_idx,:);
+
+end
 
 % Choose file location and save
 [save_file,save_path] = uiputfile('probe_positions.mat','Save probe positions as...');
 save_filename = fullfile(save_path,save_file);
-save(save_filename,'probe_positions_ccf');
+save(save_filename,'probe_positions_ccf','probe_areas');
 
 end
 
