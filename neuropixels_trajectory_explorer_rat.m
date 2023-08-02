@@ -41,7 +41,7 @@ av = permute(niftiread(fullfile(atlas_path,'WHS_SD_rat_atlas_v4.nii.gz')),[2,3,1
 tv(av == 0) = 0;
 
 % Load labels (made from auto-generated script)
-filename = 'C:\Users\Andrew\OneDrive for Business\Documents\Atlases\WHSrat\WHS_SD_rat_atlas_v4.label';
+filename = fullfile(atlas_path,'WHS_SD_rat_atlas_v4.label');
 startRow = 15;
 formatSpec = '%5f%6f%5f%5f%9f%3f%3f%s%[^\n\r]';
 fileID = fopen(filename,'r');
@@ -573,7 +573,10 @@ new_probe_position = cellfun(@str2num,new_probe_position_input);
 probe_angle_rad = (new_probe_position(4:5)/360)*2*pi;
 
 % Update the probe and trajectory reference
-max_ref_length = norm([max(gui_data.ap_coords);max(gui_data.dv_coords);max(gui_data.ml_coords)]);
+ml_lim = xlim(gui_data.handles.axes_atlas);
+ap_lim = ylim(gui_data.handles.axes_atlas);
+dv_lim = zlim(gui_data.handles.axes_atlas);
+max_ref_length = norm([range(ap_lim);range(dv_lim);range(ml_lim)]);
 [y,x,z] = sph2cart(pi-probe_angle_rad(1),pi-probe_angle_rad(2),max_ref_length);
 
 % Move probe reference (draw line through point and DV 0 with max length)
