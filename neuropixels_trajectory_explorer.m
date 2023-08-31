@@ -134,7 +134,7 @@ axes_atlas = axes('Position',[-0.08,0.05,1,0.9],'ZDir','reverse');
 axis(axes_atlas,'vis3d','equal','off','manual'); hold(axes_atlas,'on');
 
 view([30,150]);
-clim([0 300]);
+caxis([0 300]);
 xlim([-5,5]);ylim([-8,6]);zlim([-1,6.5]);
 grid_spacing = 0.5;
 set(gca,'XTick',floor(min(xlim)):grid_spacing:ceil(max(xlim)));
@@ -483,7 +483,7 @@ if strcmp(gui_data.handles.slice_plot(1).Visible,'on')
             curr_slice(curr_slice < 20) = NaN; % threshold values
 
             colormap(gui_data.handles.axes_atlas,'gray');
-            clim(gui_data.handles.axes_atlas,[0,255]);
+            caxis(gui_data.handles.axes_atlas,[0,255]);
 
         case 'av'
             curr_slice = nan(size(plane_ap_ccf));
@@ -491,7 +491,7 @@ if strcmp(gui_data.handles.slice_plot(1).Visible,'on')
             curr_slice(curr_slice <= 1) = NaN; % threshold values
 
             colormap(gui_data.handles.axes_atlas,gui_data.cmap);
-            clim(gui_data.handles.axes_atlas,[1,size(gui_data.cmap,1)]);
+            caxis(gui_data.handles.axes_atlas,[1,size(gui_data.cmap,1)]);
     end
 
     % Update the slice display
@@ -1102,18 +1102,12 @@ gui_data = guidata(probe_atlas_gui);
 % Prompt for which structures to show (only structures which are
 % labelled in the slice-spacing downsampled annotated volume)
 slice_spacing = 10;
-parsed_structures = unique(reshape(gui_data.av(1:slice_spacing:end, ...
-    1:slice_spacing:end,1:slice_spacing:end),[],1));
 
-% plot_structure_parsed = listdlg('PromptString','Select a structure to plot:', ...
-%     'ListString',gui_data.st.safe_name(parsed_structures),'ListSize',[520,500], ...
-%     'SelectionMode','single');
-% plot_structure = parsed_structures(plot_structure_parsed);
-
-% (change: show all structures even if not parsed to allow hierarchy)
-plot_structure = listdlg('PromptString','Select a structure to plot:', ...
-    'ListString',gui_data.st.safe_name,'ListSize',[520,500], ...
-    'SelectionMode','single');
+% Sort by alphabetical order and display list
+[~,area_sort_idx] = sort(gui_data.st.safe_name);
+plot_structure = area_sort_idx(listdlg('PromptString','Select a structure to plot:', ...
+    'ListString',gui_data.st.safe_name(area_sort_idx),'ListSize',[520,500], ...
+    'SelectionMode','single'));
 
 % Draw areas
 draw_areas(probe_atlas_gui,plot_structure);
@@ -1702,7 +1696,7 @@ switch new_check
         manipulator_query_rate = 10; % MPM queries per second (hard-coding, 10Hz is fine and ~max)
         gui_data.manipulator_timer_fcn = timer('TimerFcn', ...
             {@get_newscale_position,probe_atlas_gui}, ...
-            'Period', 1/manipulator_query_rate, 'ExecutionMode','fixedDelay', ...
+            'Period', 1/manipulator_query_rate, 'ExecutionMode','fixedSpacing', ...
             'TasksToExecute', inf);
 
         % Restore text color
@@ -1712,9 +1706,6 @@ switch new_check
         % (necessary for the standalone, which deletes function on 'start')
         guidata(probe_atlas_gui,gui_data);
         start(gui_data.manipulator_timer_fcn)
-
-        % Update gui data
-        guidata(probe_atlas_gui, gui_data);
 
     case 'off'
         % Stop and delete timer function
@@ -1918,7 +1909,7 @@ switch new_check
         manipulator_query_rate = 10; % MPM queries per second (hard-coding, 10Hz is fine and ~max)
         gui_data.manipulator_timer_fcn = timer('TimerFcn', ...
             {@get_scientifica_position,probe_atlas_gui}, ...
-            'Period', 1/manipulator_query_rate, 'ExecutionMode','fixedDelay', ...
+            'Period', 1/manipulator_query_rate, 'ExecutionMode','fixedSpacing', ...
             'TasksToExecute', inf);
 
         % Restore text color
@@ -1950,15 +1941,18 @@ function get_scientifica_position(obj,event,probe_atlas_gui)
 % Get guidata
 gui_data = guidata(probe_atlas_gui);
 
-% Get position (Z,Y,X)
+% Clear the manipulator buffer
+flush(gui_data.scientifica_connection)
+
+% Get position
 % (allow a few attempts, if conflics with other commands)
 writeline(gui_data.scientifica_connection,'P');
 scientifica_position = str2num(readline(gui_data.scientifica_connection));
 
 writeline(gui_data.scientifica_connection,'ANGLE');
 scientifica_elevation_angle = str2num(readline(gui_data.scientifica_connection));
-
-probe_tip = scientifica_position([3,2,1])'/1000;
+% (convert coordinate order and direction)
+probe_tip = (scientifica_position([2,1,3]).*[1,-1,-1])'/1000;
 probe_angle = [90,scientifica_elevation_angle]; % TO DO: currently assume 90 azimuth
 
 % (using length of recording sites, not full length of the probe from VCS)
@@ -2021,14 +2015,14 @@ function zero_scientifica(h,eventdata,probe_atlas_gui)
 % Get guidata
 gui_data = guidata(probe_atlas_gui);
 
-% Stop the timer, give a second to finish ongoing
+% Stop manipulator read timer
 stop(gui_data.manipulator_timer_fcn);
 
 % Zero manipulator
 writeline(gui_data.scientifica_connection,'ZERO'); % Zero manipulator
 readline(gui_data.scientifica_connection); % Read feedback
 
-% Re-start the timer
+% Re-start manipulator read timer
 start(gui_data.manipulator_timer_fcn);
 
 end
