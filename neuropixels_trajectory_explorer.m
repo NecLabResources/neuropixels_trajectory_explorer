@@ -94,7 +94,7 @@ bregma_lambda_distance_avg = 4.1; % Currently approximation
 
 % (translation values from our bregma estimate: AP/ML from Paxinos, DV from
 % rough MRI estimate)
-bregma_ccf = [570.5,580,44]; % [ML,AP,DV]
+bregma_ccf = [570.5,520,44]; % [ML,AP,DV]
 ccf_translation_tform = eye(4)+[zeros(3,4);-bregma_ccf,0];
 
 % (scaling "Toronto MRI transform", reflect AP/ML, convert 10um to 1mm)
@@ -102,7 +102,7 @@ scale = [0.952,-1.031,0.885]./100; % [ML,AP,DV]
 ccf_scale_tform = eye(4).*[scale,1]';
 
 % (rotation values from IBL estimate)
-ap_rotation = -5; % 5 degrees nose-down
+ap_rotation = 5; % tilt the CCF 5 degrees nose-up
 ccf_rotation_tform = ...
     [1 0 0 0; ...
     0 cosd(ap_rotation) -sind(ap_rotation) 0; ...
@@ -149,21 +149,19 @@ probe_coordinates_text = annotation('textbox','String','', ...
     'FontSize',12,'FontName','Consolas','PickableParts','none');
 
 % Set up the probe area axes
-axes_probe_areas = axes('Position',[0.90,0.01,0.03,0.95],'TickDir','in');
+axes_probe_areas = axes('Position',[0.85,0.01,0.08,0.95],'TickDir','in');
 axes_probe_areas.ActivePositionProperty = 'position';
-set(axes_probe_areas,'FontSize',11);
-yyaxis(axes_probe_areas,'right');
-set(axes_probe_areas,'XTick','','YColor','k','YDir','reverse');
-ylabel(axes_probe_areas,'Depth (mm)');
-yyaxis(axes_probe_areas,'left');
-probe_areas_plot = image(0);
-set(axes_probe_areas,'XTick','','YColor','k','YDir','reverse');
-title(axes_probe_areas,'Probe areas');
+probe_areas_plot = image(axes_probe_areas,[0,1],0,0);
 axes_probe_areas_probelimits = ...
     rectangle(axes_probe_areas, ...
     'position',[min(xlim(axes_probe_areas)),0,diff(xlim(axes_probe_areas)),1], ...
     'edgecolor','b','linewidth',5);
 
+set(axes_probe_areas,'FontSize',12);
+set(axes_probe_areas,'XTick','','YColor','k','YDir','reverse');
+ylabel(axes_probe_areas,'Depth (mm)');
+axes_probe_areas.YAxisLocation = 'right';
+title(axes_probe_areas,'Probe areas');
 
 
 %% Create menu/buttons
@@ -201,9 +199,6 @@ uimenu(object_menu,'Text','Probe','MenuSelectedFcn',{@visibility_probe,probe_atl
 uimenu(object_menu,'Text','3D areas','MenuSelectedFcn',{@visibility_3d_areas,probe_atlas_gui},'Checked','on');
 uimenu(object_menu,'Text','Dark mode','MenuSelectedFcn',{@visibility_darkmode,probe_atlas_gui});
 
-% manipulator_menu = uimenu(probe_atlas_gui,'Text','Manipulator');
-% uimenu(manipulator_menu,'Text','New Scale MPM','MenuSelectedFcn',{@manipulator_newscale,probe_atlas_gui});
-% uimenu(manipulator_menu,'Text','Scientifica Patchstar','MenuSelectedFcn',{@manipulator_scientifica,probe_atlas_gui});
 connect_menu = uimenu(probe_atlas_gui,'Text','Connect');
 manipulator_menu = uimenu(connect_menu,'Text','Manipulator');
 uimenu(manipulator_menu,'Text','New Scale MPM','MenuSelectedFcn',{@connect_newscale,probe_atlas_gui});
@@ -349,12 +344,12 @@ end
 % Draw updated probe
 if any([ap_offset,ml_offset,probe_offset])
     % (AP/ML)
-    set(gui_data.handles.probe_ref_line(gui_data.selected_probe),'XData', ...
-        get(gui_data.handles.probe_ref_line(gui_data.selected_probe),'XData') + ml_offset);
+    set(gui_data.handles.trajectory_line(gui_data.selected_probe),'XData', ...
+        get(gui_data.handles.trajectory_line(gui_data.selected_probe),'XData') + ml_offset);
     set(gui_data.handles.probe_line(gui_data.selected_probe),'XData', ...
         get(gui_data.handles.probe_line(gui_data.selected_probe),'XData') + ml_offset);
-    set(gui_data.handles.probe_ref_line(gui_data.selected_probe),'YData', ...
-        get(gui_data.handles.probe_ref_line(gui_data.selected_probe),'YData') + ap_offset);
+    set(gui_data.handles.trajectory_line(gui_data.selected_probe),'YData', ...
+        get(gui_data.handles.trajectory_line(gui_data.selected_probe),'YData') + ap_offset);
     set(gui_data.handles.probe_line(gui_data.selected_probe),'YData', ...
         get(gui_data.handles.probe_line(gui_data.selected_probe),'YData') + ap_offset);
     % (probe axis)
@@ -406,12 +401,12 @@ if strcmp(gui_data.handles.slice_plot(1).Visible,'on')
     curr_campos = campos(gui_data.handles.axes_atlas);
 
     % Get probe vector
-    probe_ref_top = [gui_data.handles.probe_ref_line(gui_data.selected_probe).XData(1), ...
-        gui_data.handles.probe_ref_line(gui_data.selected_probe).YData(1), ...
-        gui_data.handles.probe_ref_line(gui_data.selected_probe).ZData(1)];
-    probe_ref_bottom = [gui_data.handles.probe_ref_line(gui_data.selected_probe).XData(2), ...
-        gui_data.handles.probe_ref_line(gui_data.selected_probe).YData(2), ...
-        gui_data.handles.probe_ref_line(gui_data.selected_probe).ZData(2)];
+    probe_ref_top = [gui_data.handles.trajectory_line(gui_data.selected_probe).XData(1), ...
+        gui_data.handles.trajectory_line(gui_data.selected_probe).YData(1), ...
+        gui_data.handles.trajectory_line(gui_data.selected_probe).ZData(1)];
+    probe_ref_bottom = [gui_data.handles.trajectory_line(gui_data.selected_probe).XData(2), ...
+        gui_data.handles.trajectory_line(gui_data.selected_probe).YData(2), ...
+        gui_data.handles.trajectory_line(gui_data.selected_probe).ZData(2)];
     probe_vector = probe_ref_top - probe_ref_bottom;
 
     % Get probe-camera vector
@@ -490,6 +485,8 @@ if strcmp(gui_data.handles.slice_plot(1).Visible,'on')
             curr_slice(plane_coords_inbounds) = gui_data.av(plane_idx);
             curr_slice(curr_slice <= 1) = NaN; % threshold values
 
+            curr_slice(boundarymask(max(curr_slice,0),4)) = 0;
+
             colormap(gui_data.handles.axes_atlas,gui_data.cmap);
             caxis(gui_data.handles.axes_atlas,[1,size(gui_data.cmap,1)]);
     end
@@ -560,16 +557,16 @@ probe_ref_top_ml = interp1(probe_brain_dv+[0,z],new_probe_position(2)+[0,x],0,'l
 % Set new probe position
 probe_ref_top = [probe_ref_top_ml,probe_ref_top_ap,0];
 probe_ref_bottom = probe_ref_top + [x,y,z];
-probe_ref_vector = [probe_ref_top;probe_ref_bottom]';
+trajectory_vector = [probe_ref_top;probe_ref_bottom]';
 
-set(gui_data.handles.probe_ref_line(gui_data.selected_probe), ...
-    'XData',probe_ref_vector(1,:), ...
-    'YData',probe_ref_vector(2,:), ...
-    'ZData',probe_ref_vector(3,:));
+set(gui_data.handles.trajectory_line(gui_data.selected_probe), ...
+    'XData',trajectory_vector(1,:), ...
+    'YData',trajectory_vector(2,:), ...
+    'ZData',trajectory_vector(3,:));
 
-probe_vector = [probe_ref_vector(:,1),diff(probe_ref_vector,[],2)./ ...
-    norm(diff(probe_ref_vector,[],2))*gui_data.probe_length(gui_data.selected_probe) + ...
-    probe_ref_vector(:,1)];
+probe_vector = [trajectory_vector(:,1),diff(trajectory_vector,[],2)./ ...
+    norm(diff(trajectory_vector,[],2))*gui_data.probe_length(gui_data.selected_probe) + ...
+    trajectory_vector(:,1)];
 set(gui_data.handles.probe_line(gui_data.selected_probe), ...
     'XData',probe_vector(1,:), ...
     'YData',probe_vector(2,:), ...
@@ -620,16 +617,16 @@ probe_ref_top_ml = interp1(new_probe_position(3)+[0,z],new_probe_position(2)+[0,
 
 probe_ref_top = [probe_ref_top_ml,probe_ref_top_ap,0];
 probe_ref_bottom = probe_ref_top + [x,y,z];
-probe_ref_vector = [probe_ref_top;probe_ref_bottom]';
+trajectory_vector = [probe_ref_top;probe_ref_bottom]';
 
-set(gui_data.handles.probe_ref_line(gui_data.selected_probe), ...
-    'XData',probe_ref_vector(1,:), ...
-    'YData',probe_ref_vector(2,:), ...
-    'ZData',probe_ref_vector(3,:));
+set(gui_data.handles.trajectory_line(gui_data.selected_probe), ...
+    'XData',trajectory_vector(1,:), ...
+    'YData',trajectory_vector(2,:), ...
+    'ZData',trajectory_vector(3,:));
 
 % Move probe (lock endpoint, back up length of probe)
-probe_vector = [diff(probe_ref_vector,[],2)./ ...
-    norm(diff(probe_ref_vector,[],2))*-gui_data.probe_length(gui_data.selected_probe) + ...
+probe_vector = [diff(trajectory_vector,[],2)./ ...
+    norm(diff(trajectory_vector,[],2))*-gui_data.probe_length(gui_data.selected_probe) + ...
     new_probe_position([2,1,3]),new_probe_position([2,1,3])];
 set(gui_data.handles.probe_line(gui_data.selected_probe), ...
     'XData',probe_vector(1,:), ...
@@ -653,7 +650,7 @@ function gui_data = update_probe_angle(probe_atlas_gui,angle_change)
 gui_data = guidata(probe_atlas_gui);
 
 % Get the positions of the probe and trajectory reference
-probe_ref_vector = cell2mat(get(gui_data.handles.probe_ref_line(gui_data.selected_probe),{'XData','YData','ZData'})');
+trajectory_vector = cell2mat(get(gui_data.handles.trajectory_line(gui_data.selected_probe),{'XData','YData','ZData'})');
 probe_vector = cell2mat(get(gui_data.handles.probe_line(gui_data.selected_probe),{'XData','YData','ZData'})');
 
 % Update the probe trajectory reference angle
@@ -670,36 +667,36 @@ probe_vector = cell2mat(get(gui_data.handles.probe_line(gui_data.selected_probe)
 % probe_angle_rad = (gui_data.probe_angle./360)*2*pi;
 % [x,y,z] = sph2cart(pi-probe_angle_rad(1),probe_angle_rad(2),max_ref_length);
 %
-% new_probe_ref_top = [probe_ref_vector(1,1),probe_ref_vector(2,1),0];
+% new_probe_ref_top = [trajectory_vector(1,1),trajectory_vector(2,1),0];
 % new_probe_ref_bottom = new_probe_ref_top + [x,y,z];
-% new_probe_ref_vector = [new_probe_ref_top;new_probe_ref_bottom]';
+% new_trajectory_vector = [new_probe_ref_top;new_probe_ref_bottom]';
 
 % (New: cartesian coordinates of the trajectory bottom)
-new_probe_ref_vector = [probe_ref_vector(:,1), ...
-    probe_ref_vector(:,2) + [angle_change;0]];
+new_trajectory_vector = [trajectory_vector(:,1), ...
+    trajectory_vector(:,2) + [angle_change;0]];
 
 % Calculate angle and rotate to convention:
 % azimuth: 0-360 (clockwise from back)
 % elevation: 0-90 (horizontal to vertical)
 [probe_azimuth_sph,probe_elevation_sph] = cart2sph( ...
-    diff(new_probe_ref_vector(2,:)), ...
-    diff(new_probe_ref_vector(1,:)), ...
-    diff(new_probe_ref_vector(3,:)));
+    diff(new_trajectory_vector(2,:)), ...
+    diff(new_trajectory_vector(1,:)), ...
+    diff(new_trajectory_vector(3,:)));
 probe_angle = rad2deg([probe_azimuth_sph,probe_elevation_sph]) + ...
     [360*(probe_azimuth_sph<0),0];
 gui_data.probe_angle{gui_data.selected_probe} = probe_angle;
 
-set(gui_data.handles.probe_ref_line(gui_data.selected_probe), ...
-    'XData',new_probe_ref_vector(1,:), ...
-    'YData',new_probe_ref_vector(2,:), ...
-    'ZData',new_probe_ref_vector(3,:));
+set(gui_data.handles.trajectory_line(gui_data.selected_probe), ...
+    'XData',new_trajectory_vector(1,:), ...
+    'YData',new_trajectory_vector(2,:), ...
+    'ZData',new_trajectory_vector(3,:));
 
 % Update probe (retain depth)
-new_probe_vector = [new_probe_ref_vector(:,1),diff(new_probe_ref_vector,[],2)./ ...
-    norm(diff(new_probe_ref_vector,[],2))*gui_data.probe_length(gui_data.selected_probe) ...
-    + new_probe_ref_vector(:,1)];
+new_probe_vector = [new_trajectory_vector(:,1),diff(new_trajectory_vector,[],2)./ ...
+    norm(diff(new_trajectory_vector,[],2))*gui_data.probe_length(gui_data.selected_probe) ...
+    + new_trajectory_vector(:,1)];
 
-probe_depth = sqrt(sum((probe_ref_vector(:,1) - probe_vector(:,1)).^2));
+probe_depth = sqrt(sum((trajectory_vector(:,1) - probe_vector(:,1)).^2));
 new_probe_vector_depth = (diff(new_probe_vector,[],2)./ ...
     norm(diff(new_probe_vector,[],2))*probe_depth) + new_probe_vector;
 
@@ -719,31 +716,20 @@ function update_probe_coordinates(probe_atlas_gui,varargin)
 % Get guidata
 gui_data = guidata(probe_atlas_gui);
 
-% Get the positions of the probe and trajectory reference
-probe_ref_vector = cell2mat(get(gui_data.handles.probe_ref_line(gui_data.selected_probe),{'XData','YData','ZData'})');
+% Get the positions of the probe and trajectory
+trajectory_vector = cell2mat(get(gui_data.handles.trajectory_line(gui_data.selected_probe),{'XData','YData','ZData'})');
 probe_vector = cell2mat(get(gui_data.handles.probe_line(gui_data.selected_probe),{'XData','YData','ZData'})');
 
-trajectory_n_coords = round(max(abs(diff(probe_ref_vector,[],2)))*100); % 10um resolution
+trajectory_n_coords = round(max(abs(diff(trajectory_vector,[],2)))*1000); % 1um resolution
 [trajectory_ml_coords_bregma,trajectory_ap_coords_bregma,trajectory_dv_coords_bregma] = deal( ...
-    linspace(probe_ref_vector(1,1),probe_ref_vector(1,2),trajectory_n_coords), ...
-    linspace(probe_ref_vector(2,1),probe_ref_vector(2,2),trajectory_n_coords), ...
-    linspace(probe_ref_vector(3,1),probe_ref_vector(3,2),trajectory_n_coords));
-
-probe_n_coords = round(sqrt(sum(diff(probe_vector,[],2).^2))*100); % 10um resolution along active sites
-probe_coords_depth = linspace(0,gui_data.probe_length(gui_data.selected_probe),probe_n_coords);
-[probe_ml_coords_bregma,probe_ap_coords_bregma,probe_dv_coords_bregma] = deal( ...
-    linspace(probe_vector(1,1),probe_vector(1,2),probe_n_coords), ...
-    linspace(probe_vector(2,1),probe_vector(2,2),probe_n_coords), ...
-    linspace(probe_vector(3,1),probe_vector(3,2),probe_n_coords));
+    linspace(trajectory_vector(1,1),trajectory_vector(1,2),trajectory_n_coords), ...
+    linspace(trajectory_vector(2,1),trajectory_vector(2,2),trajectory_n_coords), ...
+    linspace(trajectory_vector(3,1),trajectory_vector(3,2),trajectory_n_coords));
 
 % Transform bregma coordinates to CCF coordinates
 [trajectory_ml_coords_ccf,trajectory_ap_coords_ccf,trajectory_dv_coords_ccf] = ...
     transformPointsInverse(gui_data.ccf_bregma_tform, ...
     trajectory_ml_coords_bregma,trajectory_ap_coords_bregma,trajectory_dv_coords_bregma);
-
-[probe_ml_coords_ccf,probe_ap_coords_ccf,probe_dv_coords_ccf] = ...
-    transformPointsInverse(gui_data.ccf_bregma_tform, ...
-    probe_ml_coords_bregma,probe_ap_coords_bregma,probe_dv_coords_bregma);
 
 % Get brain labels across the probe and trajectory, and intersection with brain
 trajectory_coords_ccf = ...
@@ -765,62 +751,86 @@ trajectory_brain_intersect = ...
     trajectory_ap_coords_bregma(trajectory_brain_idx), ...
     trajectory_dv_coords_bregma(trajectory_brain_idx)]';
 
-% (if the probe doesn't intersect the brain, don't update)
+% (if trajectory outside the brain, don't update)
 if isempty(trajectory_brain_intersect)
+    set(gui_data.probe_coordinates_text,'String','Probe trajectory is outside brain');
     return
 end
 
-trajectory_depths = pdist2(trajectory_brain_intersect',...
+trajectory_depths = ones(trajectory_n_coords,1,'double');
+trajectory_depths(trajectory_coords_ccf_inbounds) = ...
+    pdist2(trajectory_brain_intersect',...
     [trajectory_ml_coords_bregma(trajectory_coords_ccf_inbounds); ...
     trajectory_ap_coords_bregma(trajectory_coords_ccf_inbounds); ...
     trajectory_dv_coords_bregma(trajectory_coords_ccf_inbounds)]');
 
-trajectory_area_boundaries = intersect(unique([find(trajectory_areas ~= 1,1,'first'); ...
+trajectory_area_boundaries_idx = intersect(unique([find(trajectory_areas ~= 1,1,'first'); ...
     find(diff(trajectory_areas) ~= 0);find(trajectory_areas ~= 1,1,'last')]),find(trajectory_areas ~= 1));
-trajectory_area_centers_idx = round(trajectory_area_boundaries(1:end-1) + diff(trajectory_area_boundaries)/2);
+trajectory_area_centers_idx = round(trajectory_area_boundaries_idx(1:end-1) + diff(trajectory_area_boundaries_idx)/2);
+
+trajectory_area_boundaries = trajectory_depths(trajectory_area_boundaries_idx);
 trajectory_area_centers = trajectory_depths(trajectory_area_centers_idx);
-
-probe_coords_ccf = ...
-    round([probe_ap_coords_ccf;probe_dv_coords_ccf;probe_ml_coords_ccf]);
-probe_coords_ccf_inbounds = all(probe_coords_ccf > 0 & ...
-    probe_coords_ccf <= size(gui_data.av)',1);
-
-probe_idx = ...
-    sub2ind(size(gui_data.av), ...
-    round(probe_ap_coords_ccf(probe_coords_ccf_inbounds)), ...
-    round(probe_dv_coords_ccf(probe_coords_ccf_inbounds)), ...
-    round(probe_ml_coords_ccf(probe_coords_ccf_inbounds)));
-probe_areas = ones(probe_n_coords,1); % (out of CCF = 1: non-brain)
-probe_areas(probe_coords_ccf_inbounds) = gui_data.av(probe_idx);
-
-probe_area_boundaries = intersect(unique([find(~isnan(probe_areas),1,'first'); ...
-    find(diff(probe_areas) ~= 0);find(~isnan(probe_areas),1,'last')]),find(~isnan(probe_areas)));
-probe_area_centers_idx = round(probe_area_boundaries(1:end-1) + diff(probe_area_boundaries)/2);
-probe_area_centers = probe_coords_depth(probe_area_centers_idx);
 
 % Label areas by acronym/full name
 if ~isfield(gui_data,'display_region_name')
     gui_data.display_region_name = 'acronym';
 end
 trajectory_area_labels = gui_data.st.(gui_data.display_region_name)(trajectory_areas(trajectory_area_centers_idx));
-probe_area_labels = gui_data.st.(gui_data.display_region_name)(probe_areas(probe_area_centers_idx));
 
-% Get colors for all areas (probe and trajectory)
-probe_area_hexcolors = gui_data.st.color_hex_triplet(probe_areas);
-probe_area_rgbcolors = permute(cell2mat(cellfun(@(x) ...
-    hex2dec({x(1:2),x(3:4),x(5:6)})'./255, ...
-    probe_area_hexcolors,'uni',false)),[1,3,2]);
-
+% Get colors for all areas (draw white lines between areas)
 trajectory_area_hexcolors = gui_data.st.color_hex_triplet(trajectory_areas);
 trajectory_area_rgbcolors = permute(cell2mat(cellfun(@(x) ...
     hex2dec({x(1:2),x(3:4),x(5:6)})'./255, ...
     trajectory_area_hexcolors,'uni',false)),[1,3,2]);
+trajectory_area_rgbcolors(imdilate(boundarymask(trajectory_areas),ones(20,1)),:,:) = 1;
 
 % Get coordinate from bregma and probe-axis depth from surface
-% (round to nearest 10 microns)
 probe_bregma_coordinate = trajectory_brain_intersect;
 probe_depths = pdist2(trajectory_brain_intersect',probe_vector').* ...
     sign(probe_vector(3,:)-trajectory_brain_intersect(3));
+
+% Update area plot and labels
+plot_trajectory_idx = find(trajectory_areas~=1,1,'first'):find(trajectory_areas~=1,1,'last');
+set(gui_data.handles.axes_probe_areas, ...
+    'YTick',trajectory_depths(plot_trajectory_idx(1)):0.5: ...
+    trajectory_depths(plot_trajectory_idx(end)))
+set(gui_data.handles.probe_areas_plot, ... 
+    'YData',trajectory_depths(plot_trajectory_idx), ...
+    'CData',trajectory_area_rgbcolors(plot_trajectory_idx,:,:));
+
+delete(findobj(gui_data.handles.axes_probe_areas,'Type','text'));
+switch gui_data.display_region_name
+    case 'acronym'
+            text(gui_data.handles.axes_probe_areas, ...
+            repmat(0.5,length(trajectory_area_centers),1), ...
+            trajectory_area_centers,trajectory_area_labels, ...
+            'FontSize',12,'HorizontalAlignment','center','clipping','on');
+    case 'safe_name'
+            text(gui_data.handles.axes_probe_areas, ...
+            repmat(-1,length(trajectory_area_centers),1), ...
+            trajectory_area_centers,trajectory_area_labels, ...
+            'FontSize',12,'HorizontalAlignment','right','clipping','off');
+end
+
+% Update area plot (user-selected zoom as probe or full trajectory)
+gui_data.handles.axes_probe_areas_probelimits.Position([2,4]) = ...
+    [probe_depths(1),diff(probe_depths)];
+
+if ~isfield(gui_data,'display_areas')
+    gui_data.display_areas = 'probe';
+end
+switch gui_data.display_areas
+    case 'probe'
+        % Set limits to probe, turn off probe box
+        ylim(gui_data.handles.axes_probe_areas,probe_depths)
+        gui_data.handles.axes_probe_areas_probelimits.Visible = 'off';
+        title(gui_data.handles.axes_probe_areas,'Probe areas');
+    case 'trajectory'
+        % Set limits to whole trajectory, turn off probe box
+        ylim(gui_data.handles.axes_probe_areas,prctile(trajectory_depths(plot_trajectory_idx),[0,100]));
+        gui_data.handles.axes_probe_areas_probelimits.Visible = 'on';
+        title(gui_data.handles.axes_probe_areas,'Trajectory areas');
+end
 
 % Update the text
 % (manipulator angles)
@@ -837,68 +847,33 @@ recording_endpoint_text = sprintf('Recording tip:   % .2f AP, % .2f ML, % .2f DV
     probe_vector([2,1,3],2));
 bregma_lambda_text = sprintf('Bregma-Lambda distance: % .2f mm', ...
     gui_data.bregma_lambda_distance_curr);
+% (connection status)
+manipulator_text = [];
+recording_text = [];
+if isfield(gui_data,'connection')
+    if isfield(gui_data.connection,'manipulator')
+        manipulator_text = sprintf('Connected manipulator: %s', ...
+        gui_data.connection.manipulator.model);
+    end
+    if isfield(gui_data.connection,'recording')
+        recording_text = sprintf('Connected recording: %s', ...
+        gui_data.connection.recording.software);
+    end
+end
 
 % (combine and update)
 probe_text = {probe_angle_text,probe_insertion_text, ...
-    recording_startpoint_text,recording_endpoint_text,bregma_lambda_text};
-set(gui_data.probe_coordinates_text,'String',probe_text);
-
-% Update the areas (probe or trajectory, depending on selected)
-if ~isfield(gui_data,'display_areas')
-    gui_data.display_areas = 'probe';
-end
-switch gui_data.display_areas
-
-    case 'probe'
-        % Display areas in current probe position
-        yyaxis(gui_data.handles.axes_probe_areas,'right');
-        set(gui_data.handles.axes_probe_areas, ...
-            'YTick',[0:0.5:gui_data.probe_length(gui_data.selected_probe)], ...
-            'YLim',[0,gui_data.probe_length(gui_data.selected_probe)]);
-
-        yyaxis(gui_data.handles.axes_probe_areas,'left');
-        set(gui_data.handles.probe_areas_plot,'YData',probe_coords_depth, ...
-            'CData',probe_area_rgbcolors);
-        set(gui_data.handles.axes_probe_areas,'YTick',probe_area_centers, ...
-            'YTickLabels',probe_area_labels, ...
-            'YLim',[0,gui_data.probe_length(gui_data.selected_probe)]);
-
-        % Update lines showing relative probe location
-        gui_data.handles.axes_probe_areas_probelimits.Position([2,4]) = ...
-            [0,gui_data.probe_length(gui_data.selected_probe)];
-
-        title(gui_data.handles.axes_probe_areas,'Probe areas');
-
-    case 'trajectory'
-        % Display areas along whole trajectory
-        plot_trajectory_idx = find(trajectory_areas~=1,1,'first'):find(trajectory_areas~=1,1,'last');
-
-        yyaxis(gui_data.handles.axes_probe_areas,'right');
-        set(gui_data.handles.axes_probe_areas, ...
-            'YTick',trajectory_depths(plot_trajectory_idx(1)):0.5: ...
-            trajectory_depths(plot_trajectory_idx(end)), ...
-            'YLim',prctile(trajectory_depths(plot_trajectory_idx),[0,100]));
-
-        yyaxis(gui_data.handles.axes_probe_areas,'left');
-        set(gui_data.handles.probe_areas_plot, ...
-            'YData',trajectory_depths(plot_trajectory_idx), ...
-            'CData',trajectory_area_rgbcolors(plot_trajectory_idx,:,:));
-        set(gui_data.handles.axes_probe_areas,'YTick',trajectory_area_centers, ...
-            'YTickLabels',trajectory_area_labels, ...
-            'YLim',prctile(trajectory_depths(plot_trajectory_idx),[0,100]))
-
-        % Update lines showing relative probe location
-        gui_data.handles.axes_probe_areas_probelimits.Position([2,4]) = ...
-            [probe_depths(2)-diff(probe_depths),diff(probe_depths)];
-
-        title(gui_data.handles.axes_probe_areas,'Trajectory areas');
-
-end
+    recording_startpoint_text,recording_endpoint_text,bregma_lambda_text, ...
+    manipulator_text,recording_text};
+set(gui_data.probe_coordinates_text,'String',probe_text(cellfun(@(x) ~isempty(x),probe_text)));
 
 % If recording software is connected, send areas for display
-if isfield(gui_data,'recording_send')
-    send_recording_areas(gui_data,probe_area_boundaries,probe_area_labels, ...
-        probe_area_hexcolors(probe_area_centers_idx));
+if isfield(gui_data,'connection') && isfield(gui_data.connection,'recording')
+    send_recording_areas(gui_data, ...
+        probe_depths, ...
+        trajectory_area_boundaries, ...
+        trajectory_area_labels, ...
+        trajectory_area_hexcolors(trajectory_area_centers_idx));
 end
 
 % Upload gui_data
@@ -956,6 +931,8 @@ function view_coronal(h,eventdata,probe_atlas_gui)
 gui_data = guidata(probe_atlas_gui);
 view(gui_data.handles.axes_atlas,[0,0]);
 update_slice(probe_atlas_gui);
+% (hacky - switch focus back to axes)
+set(h,'enable','off');drawnow;set(h,'enable','on');
 end
 
 function view_sagittal(h,eventdata,probe_atlas_gui)
@@ -963,6 +940,8 @@ function view_sagittal(h,eventdata,probe_atlas_gui)
 gui_data = guidata(probe_atlas_gui);
 view(gui_data.handles.axes_atlas,[-90,0]);
 update_slice(probe_atlas_gui);
+% (hacky - switch focus back to axes)
+set(h,'enable','off');drawnow;set(h,'enable','on');
 end
 
 function view_horizontal(h,eventdata,probe_atlas_gui)
@@ -970,6 +949,8 @@ function view_horizontal(h,eventdata,probe_atlas_gui)
 gui_data = guidata(probe_atlas_gui);
 view(gui_data.handles.axes_atlas,[0,90]);
 update_slice(probe_atlas_gui);
+% (hacky - switch focus back to axes)
+set(h,'enable','off');drawnow;set(h,'enable','on');
 end
 
 function popup_controls(~,~,~)
@@ -1004,15 +985,15 @@ end
 % Draw probe trajectory
 probe_ref_top = [0,0,-0.1];
 probe_ref_bottom = [0,0,6];
-probe_ref_vector = [probe_ref_top',probe_ref_bottom'];
-probe_ref_line = line(gui_data.handles.axes_atlas, ...
-    probe_ref_vector(1,:),probe_ref_vector(2,:),probe_ref_vector(3,:), ...
+trajectory_vector = [probe_ref_top',probe_ref_bottom'];
+trajectory_line = line(gui_data.handles.axes_atlas, ...
+    trajectory_vector(1,:),trajectory_vector(2,:),trajectory_vector(3,:), ...
     'linewidth',1.5,'color','r','linestyle','--');
 
 % Draw probe recording length
 probe_length = 3.840; % IMEC phase 3 (in mm)
-probe_vector = [probe_ref_vector(:,1),diff(probe_ref_vector,[],2)./ ...
-    norm(diff(probe_ref_vector,[],2))*probe_length + probe_ref_vector(:,1)];
+probe_vector = [trajectory_vector(:,1),diff(trajectory_vector,[],2)./ ...
+    norm(diff(trajectory_vector,[],2))*probe_length + trajectory_vector(:,1)];
 probe_line = line(gui_data.handles.axes_atlas, ...
     probe_vector(1,:),probe_vector(2,:),probe_vector(3,:), ...
     'linewidth',5,'color','b','linestyle','-');
@@ -1022,7 +1003,7 @@ set(probe_line,'ButtonDownFcn',{@select_probe,probe_atlas_gui});
 set(probe_line,'Tag','rotate_clickable'); % (even during rotate3d)
 
 % Store probe data and axes
-gui_data.handles.probe_ref_line(new_probe_idx) = probe_ref_line; % Probe reference line on 3D atlas
+gui_data.handles.trajectory_line(new_probe_idx) = trajectory_line; % Probe reference line on 3D atlas
 gui_data.handles.probe_line(new_probe_idx) = probe_line; % Probe reference line on 3D atlas
 gui_data.probe_length(new_probe_idx) = probe_length; % Length of probe
 gui_data.probe_angle{new_probe_idx} = [0;90]; % Probe angles in ML/DV
@@ -1056,11 +1037,11 @@ if length(gui_data.handles.probe_line) == 1
 end
 
 % Delete selected probe graphics
-delete(gui_data.handles.probe_ref_line(gui_data.selected_probe));
+delete(gui_data.handles.trajectory_line(gui_data.selected_probe));
 delete(gui_data.handles.probe_line(gui_data.selected_probe));
 
 % Delete selected probe data and handles
-gui_data.handles.probe_ref_line(gui_data.selected_probe) = [];
+gui_data.handles.trajectory_line(gui_data.selected_probe) = [];
 gui_data.handles.probe_line(gui_data.selected_probe) = [];
 gui_data.probe_length(gui_data.selected_probe) = [];
 gui_data.probe_angle(gui_data.selected_probe) = [];
@@ -1202,7 +1183,8 @@ if ~isempty(plot_structure)
     gui_data.handles.structure_patch(curr_structure_plot_idx) = patch(gui_data.handles.axes_atlas, ...
         'Vertices',structure_3d.vertices, ...
         'Faces',structure_3d.faces, ...
-        'FaceColor',plot_structure_color,'EdgeColor','none','FaceAlpha',structure_alpha);
+        'FaceColor',plot_structure_color,'EdgeColor','none', ...
+        'FaceAlpha',structure_alpha,'PickableParts','none');
 
 end
 
@@ -1380,7 +1362,7 @@ gui_data = guidata(probe_atlas_gui);
 
 % Toggle probe visibility
 switch h.Checked; case 'on'; new_visibility = 'off'; case 'off'; new_visibility = 'on'; end;
-set(gui_data.handles.probe_ref_line,'Visible',new_visibility);
+set(gui_data.handles.trajectory_line,'Visible',new_visibility);
 set(gui_data.handles.probe_line,'Visible',new_visibility);
 
 % Set menu item check
@@ -1425,13 +1407,9 @@ end
 
 % Set font colors
 set(probe_atlas_gui,'color',new_bg_color)
-yyaxis(gui_data.handles.axes_probe_areas,'left');
-set(gui_data.handles.axes_probe_areas,'ycolor',new_font_color)
-yyaxis(gui_data.handles.axes_probe_areas,'right');
 set(gui_data.handles.axes_probe_areas,'ycolor',new_font_color)
 set(gui_data.handles.axes_probe_areas.Title,'color',new_font_color)
-set(gui_data.probe_coordinates_text,'BackgroundColor',new_bg_color)
-set(gui_data.probe_coordinates_text,'ForegroundColor',new_font_color)
+set(gui_data.probe_coordinates_text,'color',new_font_color)
 
 % Set menu item check
 h.Checked = new_visibility;
@@ -1460,14 +1438,14 @@ probe_positions_ccf = squeeze(mat2cell(permute(cat(3, ...
     probe_ap_ccf,probe_dv_ccf,probe_ml_ccf),[3,2,1]), ...
     3,2,ones(n_probes,1)));
 
-% Get areas in 10um increments along probe
+% Get positions along each probe
 probe_areas = cell(n_probes,1);
 for curr_probe = 1:n_probes
 
-    probe_vector = cell2mat(get(gui_data.handles.probe_line(gui_data.selected_probe),{'XData','YData','ZData'})');
-
-    probe_n_coords = round(sqrt(sum(diff(probe_vector,[],2).^2))*100); % 10um resolution along active sites
-    probe_coords_depth = linspace(0,gui_data.probe_length(gui_data.selected_probe),probe_n_coords);
+    % Sample areas along probe every 1um
+    probe_vector = cell2mat(get(gui_data.handles.probe_line(curr_probe),{'XData','YData','ZData'})');
+    probe_n_coords = round(norm(diff(probe_vector,[],2))*1000);
+    probe_coords_depth = linspace(0,gui_data.probe_length(curr_probe)*1000-1,probe_n_coords);
 
     [probe_ml_coords_bregma,probe_ap_coords_bregma,probe_dv_coords_bregma] = deal( ...
         linspace(probe_vector(1,1),probe_vector(1,2),probe_n_coords), ...
@@ -1483,16 +1461,26 @@ for curr_probe = 1:n_probes
     probe_coords_ccf_inbounds = all(probe_coords_ccf > 0 & ...
         probe_coords_ccf <= size(gui_data.av)',1);
 
-    probe_idx = ...
+    probe_location_idx = ...
         sub2ind(size(gui_data.av), ...
         round(probe_ap_coords_ccf(probe_coords_ccf_inbounds)), ...
         round(probe_dv_coords_ccf(probe_coords_ccf_inbounds)), ...
-        round(probe_ml_coords_ccf(probe_coords_ccf_inbounds)));
+        round(probe_ml_coords_ccf(probe_coords_ccf_inbounds)))';
 
-    probe_areas_idx = ones(probe_n_coords,1); % (out of CCF = 1: non-brain)
-    probe_areas_idx(probe_coords_ccf_inbounds) = gui_data.av(probe_idx);
+    % Get boundaries of areas and area IDs
+    probe_area_idx_sampled = ones(probe_n_coords,1);
+    probe_area_idx_sampled(probe_coords_ccf_inbounds) = gui_data.av(probe_location_idx);
+    probe_area_bins = [1;(find(diff(probe_area_idx_sampled)~= 0)+1);probe_n_coords];
+    probe_area_boundaries = [probe_area_bins(1:end-1),probe_area_bins(2:end)];
 
-    probe_areas{curr_probe} = gui_data.st(probe_areas_idx,:);
+    probe_area_idx = probe_area_idx_sampled(probe_area_boundaries(:,1));
+
+    % Store structure tree entries for probe areas (ammend start depth for each area)
+    store_areas_idx = probe_area_idx > 1; % only use areas in brain (idx > 1)
+    curr_probe_areas = gui_data.st(probe_area_idx(store_areas_idx),:);
+    curr_probe_areas.probe_depth = probe_coords_depth(probe_area_boundaries(store_areas_idx,:));
+
+    probe_areas{curr_probe} = curr_probe_areas;
 
 end
 
@@ -1576,12 +1564,12 @@ for curr_probe = 1:load_n_probes
 
     probe_ref_top = [probe_ref_top_ml,probe_ref_top_ap,0];
     probe_ref_bottom = probe_ref_top + [x,y,z];
-    probe_ref_vector = [probe_ref_top;probe_ref_bottom]';
+    trajectory_vector = [probe_ref_top;probe_ref_bottom]';
 
-    set(gui_data.handles.probe_ref_line(curr_probe), ...
-        'XData',probe_ref_vector(1,:), ...
-        'YData',probe_ref_vector(2,:), ...
-        'ZData',probe_ref_vector(3,:));
+    set(gui_data.handles.trajectory_line(curr_probe), ...
+        'XData',trajectory_vector(1,:), ...
+        'YData',trajectory_vector(2,:), ...
+        'ZData',trajectory_vector(3,:));
 
 end
 
@@ -1689,12 +1677,13 @@ switch new_check
         gui_data.manipulator_dv_offset = zeros(newscale_n_probes,1);
 
         % Save newscale_client in guidata
-        gui_data.newscale_client = newscale_client;
+        gui_data.connection.manipulator.model = 'New Scale MPM';
+        gui_data.connection.manipulator.client = newscale_client;
         guidata(probe_atlas_gui, gui_data);
 
         % Set up timer function for updating probe position
         manipulator_query_rate = 10; % MPM queries per second (hard-coding, 10Hz is fine and ~max)
-        gui_data.manipulator_timer_fcn = timer('TimerFcn', ...
+        gui_data.connection.manipulator.timer_fcn = timer('TimerFcn', ...
             {@get_newscale_position,probe_atlas_gui}, ...
             'Period', 1/manipulator_query_rate, 'ExecutionMode','fixedSpacing', ...
             'TasksToExecute', inf);
@@ -1705,18 +1694,27 @@ switch new_check
         % Store timer function and start
         % (necessary for the standalone, which deletes function on 'start')
         guidata(probe_atlas_gui,gui_data);
-        start(gui_data.manipulator_timer_fcn)
+        start(gui_data.connection.manipulator.timer_fcn)
+
+        % Update probe coordinates
+        update_probe_coordinates(probe_atlas_gui);
 
     case 'off'
-        % Stop and delete timer function
+        % Stop timer function and delete connection
         try
-            stop(gui_data.manipulator_timer_fcn)
+            stop(gui_data.connection.manipulator.timer_fcn)
         catch
         end
-        delete(gui_data.manipulator_timer_fcn)
+        gui_data.connection = rmfield(gui_data.connection,'manipulator');
 
         % Remove manipulator buttons
         delete(gui_data.handles.zero_dv_button);
+
+        % Update gui data
+        guidata(probe_atlas_gui,gui_data);
+
+        % Update probe coordinates
+        update_probe_coordinates(probe_atlas_gui);
 end
 
 end
@@ -1727,13 +1725,13 @@ function get_newscale_position(obj,event,probe_atlas_gui)
 gui_data = guidata(probe_atlas_gui);
 
 % Query MPM app for probe information
-gui_data.newscale_client.QueryMpmApplication;
+gui_data.connection.manipulator.client.QueryMpmApplication;
 
 % Loop through all MPM probes, update data
-for curr_newscale_probe = 1:gui_data.newscale_client.AppData.Probes
+for curr_newscale_probe = 1:gui_data.connection.manipulator.client.AppData.Probes
 
     % Get given MPM probe data (0-indexed)
-    newscale_probe_info = gui_data.newscale_client.AppData.GetProbe(curr_newscale_probe-1);
+    newscale_probe_info = gui_data.connection.manipulator.client.AppData.GetProbe(curr_newscale_probe-1);
 
     % Get tip position of probe (MPM convention: -Z is down)
     probe_tip = [newscale_probe_info.Tip_X_ML; newscale_probe_info.Tip_Y_AP; -newscale_probe_info.Tip_Z_DV];
@@ -1749,7 +1747,7 @@ for curr_newscale_probe = 1:gui_data.newscale_client.AppData.Probes
 
     % (MPM convention: Polar is relative to Posterior Angle, Pitch: 0 is vertical)
     mpm2nte_angles = ...
-        [newscale_probe_info.Polar-double(gui_data.newscale_client.AppData.PosteriorAngle), ...
+        [newscale_probe_info.Polar-double(gui_data.connection.manipulator.client.AppData.PosteriorAngle), ...
         90-newscale_probe_info.Pitch];
 
     % (using length of recording sites, not full length of the probe from VCS)
@@ -1796,18 +1794,18 @@ for curr_newscale_probe = 1:gui_data.newscale_client.AppData.Probes
     probe_ref_top = [probe_ref_top_ml,probe_ref_top_ap,0];
     probe_ref_bottom = probe_ref_top + [x,y,z];
 
-    probe_ref_vector = [probe_ref_top;probe_ref_bottom]';
+    trajectory_vector = [probe_ref_top;probe_ref_bottom]';
 
-    set(gui_data.handles.probe_ref_line(curr_newscale_probe), ...
-        'XData',probe_ref_vector(1,:), ...
-        'YData',probe_ref_vector(2,:), ...
-        'ZData',probe_ref_vector(3,:));
+    set(gui_data.handles.trajectory_line(curr_newscale_probe), ...
+        'XData',trajectory_vector(1,:), ...
+        'YData',trajectory_vector(2,:), ...
+        'ZData',trajectory_vector(3,:));
 
     % Update gui data
     guidata(probe_atlas_gui, gui_data);
 
     % Get bregma-lambda distance (from Probe A), re-scale atlas if changed
-    newscale_probe_info = gui_data.newscale_client.AppData.GetProbe(0);
+    newscale_probe_info = gui_data.connection.manipulator.client.AppData.GetProbe(0);
     newscale_bregma_lambda_distance = ...
         norm([newscale_probe_info.Bregma_X,newscale_probe_info.Bregma_Y,newscale_probe_info.Bregma_Z]- ...
         [newscale_probe_info.Lambda_X,newscale_probe_info.Lambda_Y,newscale_probe_info.Lambda_Z]);
@@ -1816,7 +1814,7 @@ for curr_newscale_probe = 1:gui_data.newscale_client.AppData.Probes
     end
 
     % Select MPM-selected probe (0-indexed, unselected = -1 so force >1)
-    newscale_selected_probe = max(gui_data.newscale_client.AppData.SelectedProbe+1,1);
+    newscale_selected_probe = max(gui_data.connection.manipulator.client.AppData.SelectedProbe+1,1);
     select_probe(gui_data.handles.probe_line(newscale_selected_probe),[],probe_atlas_gui)
 
     % Update the slice and probe coordinates
@@ -1903,11 +1901,12 @@ switch new_check
         writeline(scientifica_connection,'ZERO'); % Zero manipulator
         readline(scientifica_connection); % Read feedback
 
-        gui_data.scientifica_connection = scientifica_connection;
+        gui_data.connection.manipulator.model = 'Scientifica Patchstar';
+        gui_data.connection.manipulator.client = scientifica_connection;
 
         % Set up timer function for updating probe position
         manipulator_query_rate = 10; % MPM queries per second (hard-coding, 10Hz is fine and ~max)
-        gui_data.manipulator_timer_fcn = timer('TimerFcn', ...
+        gui_data.connection.manipulator.timer_fcn = timer('TimerFcn', ...
             {@get_scientifica_position,probe_atlas_gui}, ...
             'Period', 1/manipulator_query_rate, 'ExecutionMode','fixedSpacing', ...
             'TasksToExecute', inf);
@@ -1918,18 +1917,18 @@ switch new_check
         % Store timer function and start
         % (necessary for the standalone, which deletes function on 'start')
         guidata(probe_atlas_gui,gui_data);
-        start(gui_data.manipulator_timer_fcn)
+        start(gui_data.connection.manipulator.timer_fcn)
 
     case 'off'
         % Stop and delete timer function
         try
-            stop(gui_data.manipulator_timer_fcn)
+            stop(gui_data.connection.manipulator.timer_fcn)
         catch
         end
-        delete(gui_data.manipulator_timer_fcn)
+        delete(gui_data.connection.manipulator.timer_fcn)
 
         % Delete serial connection
-        delete(gui_data.scientifica_connection)
+        delete(gui_data.connection.manipulator.client)
         % Remove manipulator buttons
         delete(gui_data.handles.zero_manipulator_button);
 end
@@ -1942,17 +1941,17 @@ function get_scientifica_position(obj,event,probe_atlas_gui)
 gui_data = guidata(probe_atlas_gui);
 
 % Clear the manipulator buffer
-flush(gui_data.scientifica_connection)
+flush(gui_data.connection.manipulator.client)
 
 % Get position
 % (allow a few attempts, if conflics with other commands)
-writeline(gui_data.scientifica_connection,'P');
-scientifica_position = str2num(readline(gui_data.scientifica_connection));
+writeline(gui_data.connection.manipulator.client,'P');
+scientifica_position = str2num(readline(gui_data.connection.manipulator.client));
 
-writeline(gui_data.scientifica_connection,'ANGLE');
-scientifica_elevation_angle = str2num(readline(gui_data.scientifica_connection));
+writeline(gui_data.connection.manipulator.client,'ANGLE');
+scientifica_elevation_angle = str2num(readline(gui_data.connection.manipulator.client));
 % (convert coordinate order and direction)
-probe_tip = (scientifica_position([2,1,3]).*[1,-1,-1])'/1000;
+probe_tip = (scientifica_position([2,1,3]).*[1,-1,-1])'/10000; % reports as 1/10 microns
 probe_angle = [90,scientifica_elevation_angle]; % TO DO: currently assume 90 azimuth
 
 % (using length of recording sites, not full length of the probe from VCS)
@@ -1991,12 +1990,12 @@ probe_ref_top_ml = interp1(probe_vector(3,2)+[0,z],probe_vector(1,2)+[0,x],0,'li
 probe_ref_top = [probe_ref_top_ml,probe_ref_top_ap,0];
 probe_ref_bottom = probe_ref_top + [x,y,z];
 
-probe_ref_vector = [probe_ref_top;probe_ref_bottom]';
+trajectory_vector = [probe_ref_top;probe_ref_bottom]';
 
-set(gui_data.handles.probe_ref_line(1), ...
-    'XData',probe_ref_vector(1,:), ...
-    'YData',probe_ref_vector(2,:), ...
-    'ZData',probe_ref_vector(3,:));
+set(gui_data.handles.trajectory_line(1), ...
+    'XData',trajectory_vector(1,:), ...
+    'YData',trajectory_vector(2,:), ...
+    'ZData',trajectory_vector(3,:));
 
 % Update gui data
 guidata(probe_atlas_gui, gui_data);
@@ -2016,14 +2015,14 @@ function zero_scientifica(h,eventdata,probe_atlas_gui)
 gui_data = guidata(probe_atlas_gui);
 
 % Stop manipulator read timer
-stop(gui_data.manipulator_timer_fcn);
+stop(gui_data.connection.manipulator.timer_fcn);
 
 % Zero manipulator
-writeline(gui_data.scientifica_connection,'ZERO'); % Zero manipulator
-readline(gui_data.scientifica_connection); % Read feedback
+writeline(gui_data.connection.manipulator.client,'ZERO'); % Zero manipulator
+readline(gui_data.connection.manipulator.client); % Read feedback
 
 % Re-start manipulator read timer
-start(gui_data.manipulator_timer_fcn);
+start(gui_data.connection.manipulator.timer_fcn);
 
 end
 
@@ -2069,14 +2068,14 @@ switch new_check
         end
 
         % Set Open Ephys IP address for sending
-        gui_data.recording_send.software = 'openephys';
-        gui_data.recording_send.ip = openephys_ip{1};
-        gui_data.recording_send.port = openephys_port;
+        gui_data.connection.recording.software = 'Open Ephys';
+        gui_data.connection.recording.ip = openephys_ip{1};
+        gui_data.connection.recording.port = openephys_port;
 
     case 'off'
-        % Remove Open Ephys IP address
-        if isfield(gui_data,'openephys_ip')
-            gui_data = rmfield(gui_data,'recording_send');
+        % Remove recording connection
+        if isfield(gui_data.connection,'recording')
+            gui_data.connection = rmfield(gui_data.connection,'recording');
         end
 
 end
@@ -2131,17 +2130,17 @@ switch new_check
             spikeglx_client = SpikeGL(spikeglx_ip,spikeglx_port);
 
             % Set Open Ephys IP address for sending
-            gui_data.recording_send.software = 'spikeglx';
-            gui_data.recording_send.client = spikeglx_client;
+            gui_data.connection.recording.software = 'SpikeGLX';
+            gui_data.connection.recording.client = spikeglx_client;
         catch me
             errordlg({sprintf('SpikeGLX not accessible on %s:%d',spikeglx_ip,spikeglx_port), ...
                 'Ensure SpikeGLX server is running (SpikeGLX console: Options >  Command Server Settings > Enable)'},'SpikeGLX');
         end        
 
     case 'off'
-        % Remove Open Ephys IP address
-        if isfield(gui_data,'recording_send')
-            gui_data = rmfield(gui_data,'recording_send');
+        % Remove recording connection
+        if isfield(gui_data.connection,'recording')
+            gui_data.connection = rmfield(gui_data.connection,'recording');
         end
 
 end
@@ -2154,11 +2153,11 @@ update_probe_coordinates(probe_atlas_gui);
 
 end
 
-function send_recording_areas(gui_data,probe_area_boundaries,probe_area_labels,probe_area_hexcolors)
+function send_recording_areas(gui_data,probe_depth,area_boundaries,area_labels,area_hexcolors)
 
-switch gui_data.recording_send.software
+switch gui_data.connection.recording.software
 
-    case 'openephys'
+    case 'Open Ephys'
         % Open Ephys area conventions:
         % <probe_name>;<start_index_1>-<end_index_1>,<region_ID_1>,<hex_color_1>;<start_index_2>-<end_index_2>,...
         %
@@ -2169,36 +2168,45 @@ switch gui_data.recording_send.software
         % given region, ideally going all the way up the probe. The Probe Viewer
         % will then display a subset depending on which electrodes are selected.
 
-        % Flip sites: NTE goes pcb-to-tip, NPX sites go tip-to-pcb
-        probe_area_boundaries_site = (384+1) - probe_area_boundaries;
-        [~,site_sort_idx] = sort(probe_area_boundaries_site(2:end));
+        % Calculate the depths of each site along the trajectory
+        n_sites = 1000;
+        site_y_spacing = 0.02;
+        probe_sites = reshape(repmat(((1:n_sites/2)-1)*site_y_spacing,2,1),[],1);
+        probe_sites_depth = sort(probe_depth(2) - probe_sites);
+        probe_sites_depth_bins = [probe_sites_depth - site_y_spacing/2; ...
+            probe_sites_depth(end) + site_y_spacing/2];
+
+        % Get the area boundaries as site numbers (flip top/tip)
+        area_boundaries_sites = discretize(area_boundaries,probe_sites_depth_bins,(n_sites:-1:1)-1);
 
         % Convert selected probe number to letter
         alphabet = 'A':'Z';
         probe_letter = alphabet(gui_data.selected_probe);
-
+    
+        send_areas = find(~isnan(area_boundaries_sites));
+        [~,send_area_sort] = sort(area_boundaries_sites(send_areas));
         areas_send_txt = [sprintf('Probe%s;',probe_letter), ...
             cell2mat(arrayfun(@(x) sprintf('%d-%d,%s,%s;', ...
-            probe_area_boundaries_site(x+1),probe_area_boundaries_site(x)-1, ...
-            probe_area_labels{x}, ...
-            probe_area_hexcolors{x}),site_sort_idx,'uni',false)')];
+            area_boundaries_sites(x+1),area_boundaries_sites(x), ...
+            area_labels{x}, ...
+            area_hexcolors{x}),send_areas(send_area_sort),'uni',false)')];
 
         % Get probe viewer processor number
         openephys_processors = webread(sprintf('http://%s:%d/api/processors', ...
-            gui_data.recording_send.ip,gui_data.recording_send.port));
+            gui_data.connection.recording.ip,gui_data.connection.recording.port));
         probe_viewer_idx = strcmp({openephys_processors.processors.name},'Probe Viewer');
 
         % Send areas to Open Ephys
         if any(probe_viewer_idx)
             openephys_url = sprintf('http://%s:%d/api/processors/%d/config', ...
-                gui_data.recording_send.ip, ...
-                gui_data.recording_send.port, ...
+                gui_data.connection.recording.ip, ...
+                gui_data.connection.recording.port, ...
                 openephys_processors.processors(probe_viewer_idx).id);
             openephys_send_status = webwrite(openephys_url, struct('text',areas_send_txt), ...
                 weboptions('RequestMethod','put','MediaType','application/json'));
         end
 
-    case 'spikeglx'
+    case 'SpikeGLX'
     % SpikeGLX area conventions:
     %     Set anatomy data string with Pinpoint format:
     %     [probe-id,shank-id](startpos,endpos,R,G,B,rgnname)(startpos,endpos,R,G,B,rgnname)…()
@@ -2209,35 +2217,47 @@ switch gui_data.recording_send.software
     %        - R,G,B:    region color as RGB, each [0..255].
     %        - rgnname:  region name text.
 
-    % Flip sites: NTE goes pcb-to-tip, NPX sites go tip-to-pcb
-    % (note: SpikeGLX is microns from tip, so add tip length)
+    % Get SpikeGLX probes (unused at the moment)
+    orig_warning = warning;
+    warning('off','all')
+    spikeglx_probelist = GetProbeList(gui_data.connection.recording.client);
+    spike_glx_probelist_parsed = regexp(spikeglx_probelist, ...
+        '(\d*),(\d*),PRB_(\d*)_(\d*)_(\d*)_(\d*)','tokens');
+    warning(orig_warning);
+
+    % If selected probe index is more than number of SpikeGLX: do nothing
+    if gui_data.selected_probe > length(spike_glx_probelist_parsed)
+        return
+    end
+
+    % Get area depths relative to probe tip 
+    % (SpikeGLX is microns from tip, so add in tip length)
     tip_length = 175;
-    probe_area_boundaries_um = ((384+1) - probe_area_boundaries)*10 + tip_length;
-    [~,site_sort_idx] = sort(probe_area_boundaries_um(2:end));
+    area_boundaries_um = -(area_boundaries-probe_depth(2))*1000 + tip_length;
 
     % Colors: hex to RGB
-    probe_area_rgbcolors = cell2mat(cellfun(@(x) ...
+    area_rgbcolors = cell2mat(cellfun(@(x) ...
         hex2dec({x(1:2),x(3:4),x(5:6)})', ...
-        probe_area_hexcolors,'uni',false));
+        area_hexcolors,'uni',false));
 
     % (note: SpikeGLX zero indexes probe/shank)
     areas_send_txt = [sprintf('[%d,%d]',gui_data.selected_probe-1,0), ...
         cell2mat(arrayfun(@(x) sprintf('(%d,%d,%g,%g,%g,%s)', ...
-        probe_area_boundaries_um(x+1),probe_area_boundaries_um(x)-1, ...
-        probe_area_rgbcolors(x,:), probe_area_labels{x}), ...
-        site_sort_idx,'uni',false)')];
+        area_boundaries_um(x+1),area_boundaries_um(x)-1, ...
+        area_rgbcolors(x,:), area_labels{x}), ...
+        (1:length(area_boundaries_um)-1)','uni',false)')];
 
     % Send areas to SpikeGLX
     % (sends warning about connection: turn warnings off/on to avoid)
     orig_warning = warning;
     warning('off','all')
-    SetAnatomy_Pinpoint(gui_data.recording_send.client,areas_send_txt);
+    SetAnatomy_Pinpoint(gui_data.connection.recording.client,areas_send_txt);
     warning(orig_warning);
 
     % SpikeGLX TO DO: 
     % Get and send areas along sites that are currently being recorded
     % Get geometry of recorded sites by:
-    % x = GetGeomMap(gui_data.recording_send.client,ip)
+    % x = GetGeomMap(gui_data.connection.recording.client,ip)
     % (ip = probe index, zero-indexed)
     % (commands often take js = jth stream (0=NI, 1=Onebox,2=imec probe)
     % (ip is the ith object of the stream, the ith probe)
