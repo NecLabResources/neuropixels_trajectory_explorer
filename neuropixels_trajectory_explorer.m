@@ -790,6 +790,12 @@ probe_bregma_coordinate = trajectory_brain_intersect;
 probe_depths = pdist2(trajectory_brain_intersect',probe_vector').* ...
     sign(probe_vector(3,:)-trajectory_brain_intersect(3));
 
+% Update probe insertion point
+[gui_data.probe(gui_data.selected_probe).insertion_point.XData, ...
+    gui_data.probe(gui_data.selected_probe).insertion_point.YData, ...
+    gui_data.probe(gui_data.selected_probe).insertion_point.ZData] = ...
+    deal(probe_bregma_coordinate(1),probe_bregma_coordinate(2),probe_bregma_coordinate(3));
+
 % Update area plot and labels
 plot_trajectory_idx = find(trajectory_areas~=1,1,'first'):find(trajectory_areas~=1,1,'last');
 set(gui_data.handles.axes_probe_areas, ...
@@ -1001,6 +1007,11 @@ probe_line = line(gui_data.handles.axes_atlas, ...
     probe_vector(1,:),probe_vector(2,:),probe_vector(3,:), ...
     'linewidth',5,'color','b','linestyle','-');
 
+% Draw probe insertion point
+probe_insertion_point = plot3(gui_data.handles.axes_atlas,...
+    probe_ref_top(1),probe_ref_top(2), ...
+    probe_ref_top(3),'.r','MarkerSize',30);
+
 % Set up click-to-select (probe line or area axes)
 set(probe_line,'ButtonDownFcn',{@select_probe,probe_atlas_gui});
 set(probe_line,'Tag','rotate_clickable'); % (even during rotate3d)
@@ -1008,6 +1019,7 @@ set(probe_line,'Tag','rotate_clickable'); % (even during rotate3d)
 % Store probe data and axes
 gui_data.probe(new_probe_idx).trajectory = trajectory_line; % Probe reference line on 3D atlas
 gui_data.probe(new_probe_idx).line = probe_line; % Probe reference line on 3D atlas
+gui_data.probe(new_probe_idx).insertion_point = probe_insertion_point; % Probe reference line on 3D atlas
 gui_data.probe(new_probe_idx).length = probe_length; % Length of probe
 gui_data.probe(new_probe_idx).angle = [0;90]; % Probe angles in ML/DV
 
@@ -1417,8 +1429,9 @@ gui_data = guidata(probe_atlas_gui);
 
 % Toggle probe visibility
 switch h.Checked; case 'on'; new_visibility = 'off'; case 'off'; new_visibility = 'on'; end;
-set(gui_data.probe.trajectory,'Visible',new_visibility);
-set(gui_data.probe.line,'Visible',new_visibility);
+set([gui_data.probe.trajectory],'Visible',new_visibility);
+set([gui_data.probe.line],'Visible',new_visibility);
+set([gui_data.probe.insertion_point],'Visible',new_visibility);
 
 % Set menu item check
 h.Checked = new_visibility;
@@ -1600,7 +1613,7 @@ for curr_probe = 1:load_n_probes
         diff(probe_vector(3,:,curr_probe)));
     probe_angle = rad2deg([probe_azimuth_sph,probe_elevation_sph]) + ...
         [360*(probe_azimuth_sph<0),0];
-    gui_data.probe.angle{curr_probe} = probe_angle;
+    gui_data.probe(curr_probe).angle = probe_angle;
 
     % Update trajectory reference (draw line through point and DV 0 with max length)
     ml_lim = xlim(gui_data.handles.axes_atlas);
@@ -1824,7 +1837,7 @@ for curr_newscale_probe = 1:gui_data.connection.manipulator.client.AppData.Probe
     probe_vector = [probe_top, probe_tip] + manipulator_dv_offset;
 
     % Update angles
-    gui_data.probe.angle{curr_newscale_probe} = mpm2nte_angles;
+    gui_data.probe(curr_newscale_probe).angle = mpm2nte_angles;
 
     % Change probe location
     set(gui_data.probe(curr_newscale_probe).line, ...
@@ -2396,10 +2409,8 @@ selected_probe_idx = h == [gui_data.probe.line];
 % Color probe/axes by selected/unselected
 selected_color = [0,0,1];
 unselected_color = [0,0,0];
+set([gui_data.probe.line],'color',unselected_color);
 set(gui_data.probe(selected_probe_idx).line,'color',selected_color);
-if any(~selected_probe_idx)
-    set(gui_data.probe(~selected_probe_idx).line,'color',unselected_color);
-end
 
 % Set selected probe
 gui_data.selected_probe = find(selected_probe_idx);
